@@ -1,3 +1,4 @@
+
 package com.inventory;
 
 import com.inventory.db.Database;
@@ -8,6 +9,11 @@ public class Main {
     public static void main(String[] args) throws Exception {
         Database.init();
         SeedData.loadIfEmpty();
-        new WebServer().start(8080);
+
+        int port = Integer.parseInt(
+            System.getenv().getOrDefault("PORT", "8080")
+        );
+
+        new WebServer().start(port);
     }
 }
