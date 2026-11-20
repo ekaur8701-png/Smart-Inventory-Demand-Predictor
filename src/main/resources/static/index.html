@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart Inventory</title>
+<style>
+:root{--bg:#eef1f4;--panel:#fff;--ink:#1b2733;--mute:#5d6b78;--line:#d5dce3;--accent:#0f6e6e;--accent-ink:#fff;--ok:#1d7a46;--low:#a86300;--out:#b3261e;--okbg:#e3f3ea;--lowbg:#fdefd5;--outbg:#fbe3e1}
+@media (prefers-color-scheme:dark){:root{--bg:#141a20;--panel:#1c242c;--ink:#e6ecf1;--mute:#97a5b1;--line:#2d3944;--accent:#4fc1b8;--accent-ink:#0b1a19;--ok:#6fd49a;--low:#f0b44c;--out:#ff8a80;--okbg:#17332539;--lowbg:#3a2d12;--outbg:#3d1d1b}}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--ink);display:flex;min-height:100vh}
+nav{width:210px;background:var(--panel);border-right:1px solid var(--line);padding:20px 12px;position:sticky;top:0;height:100vh}
+nav h1{font-size:18px;margin:0 8px 18px}
+nav button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--ink);padding:9px 12px;border-radius:6px;font:inherit;cursor:pointer}
+nav button.on{background:var(--accent);color:var(--accent-ink)}
+nav button:hover:not(.on){background:var(--bg)}
+main{flex:1;padding:24px 28px;max-width:1100px}
+h2{margin:0 0 16px;font-size:22px}
+h3{margin:22px 0 8px;font-size:16px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:16px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}
+.stat b{display:block;font-size:24px}.stat span{color:var(--mute);font-size:13px}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line)}
+th{font-size:13px;color:var(--mute);font-weight:600}
+.wrap{overflow-x:auto}
+input,select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)}
+button.btn{font:inherit;padding:8px 14px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);cursor:pointer}
+button.btn.alt{background:none;color:var(--accent)}
+button.btn.del{background:none;border-color:var(--out);color:var(--out)}
+button.btn.sm{padding:4px 9px;font-size:13px}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.tag{padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600}
+.OK{background:var(--okbg);color:var(--ok)}.LOW{background:var(--lowbg);color:var(--low)}.OUT{background:var(--outbg);color:var(--out)}
+.empty{color:var(--mute);padding:14px 4px}
+#toast{position:fixed;bottom:20px;right:20px;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:6px;display:none;max-width:320px}
+#toast.err{background:var(--out);color:#fff}
+.bar{height:8px;background:var(--accent);border-radius:4px}
+@media(max-width:720px){body{flex-direction:column}nav{width:100%;height:auto;position:static;display:flex;flex-wrap:wrap;gap:4px}nav h1{width:100%}nav button{width:auto}main{padding:16px}}
+</style>
+</head>
+<body>
+<nav>
+  <h1>Smart Inventory</h1>
+  <button data-t="overview" class="on">Overview</button>
+  <button data-t="products">Products</button>
+  <button data-t="sell">Record a sale</button>
+  <button data-t="reorder">Reorder</button>
+  <button data-t="sales">Sales history</button>
+</nav>
+<main id="view"></main>
+<div id="toast" role="status"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const money = n => '₹' + Number(n).toLocaleString('en-IN', {maximumFractionDigits: 2});
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let tab = 'overview', products = [];
+
+async function api(path, method = 'GET', body) {
+  const res = await fetch('/api' + path, {method, headers: {'Content-Type': 'application/json'}, body: body ? JSON.stringify(body) : undefined});
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+function toast(msg, err) {
+  const t = $('#toast'); t.textContent = msg; t.className = err ? 'err' : ''; t.style.display = 'block';
+  clearTimeout(toast.h); toast.h = setTimeout(() => t.style.display = 'none', 3200);
+}
+async function act(fn, okMsg) { try { await fn(); if (okMsg) toast(okMsg); render(); } catch (e) { toast(e.message, true); } }
+
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x => x.classList.remove('on'));
+  b.classList.add('on'); tab = b.dataset.t; render();
+});
+
+async function render() {
+  products = await api('/products');
+  ({overview, products: viewProducts, sell, reorder, sales}[tab] || overview)();
+}
+
+async function overview() {
+  const r = await api('/report');
+  const max = Math.max(1, ...r.topSellers.map(t => t.units));
+  $('#view').innerHTML = `<h2>Overview</h2>
+  <div class="stats">
+    <div class="stat"><b>${r.totalProducts}</b><span>Products</span></div>
+    <div class="stat"><b>${money(r.stockValue)}</b><span>Stock value</span></div>
+    <div class="stat"><b>${r.lowStock}</b><span>Items low or out of stock</span></div>
+    <div class="stat"><b>${money(r.revenue)}</b><span>Total revenue (${r.unitsSold} units)</span></div>
+  </div>
+  <div class="panel"><h3 style="margin-top:0">Top sellers</h3>
+  ${r.topSellers.length ? r.topSellers.map(t => `<div style="margin:8px 0"><div style="display:flex;justify-content:space-between"><span>${esc(t.name)}</span><span>${t.units} units · ${money(t.revenue)}</span></div><div class="bar" style="width:${t.units / max * 100}%"></div></div>`).join('') : '<div class="empty">No sales yet. Record a sale to see top sellers.</div>'}
+  </div>
+  <div class="panel"><h3 style="margin-top:0">Products by category</h3>
+  ${Object.entries(r.byCategory).map(([k, v]) => `<span class="tag OK" style="margin-right:6px">${esc(k)}: ${v}</span>`).join('')}
+  </div>`;
+}
+
+let q = '', sort = '';
+function viewProducts() {
+  $('#view').innerHTML = `<h2>Products</h2>
+  <div class="panel"><div class="row">
+    <input id="q" placeholder="Search name or category" value="${esc(q)}">
+    <select id="sort"><option value="">Sort: newest last</option><option value="name">Name</option><option value="quantity">Quantity</option><option value="price">Price</option></select>
+  </div><div class="wrap" id="plist"></div></div>
+  <div class="panel"><h3 style="margin-top:0">Add a product</h3>
+  <div class="row">
+    <input id="n" placeholder="Name"><input id="c" placeholder="Category">
+    <select id="t"><option value="GENERAL">General</option><option value="PERISHABLE">Perishable (3-day lead time)</option><option value="ELECTRONIC">Electronic (14-day lead time)</option></select>
+  </div><div class="row">
+    <input id="p" type="number" min="0" step="0.01" placeholder="Price"><input id="qt" type="number" min="0" placeholder="Opening stock"><input id="rl" type="number" min="0" placeholder="Reorder level">
+    <button class="btn" id="add">Add product</button>
+  </div></div>`;
+  $('#sort').value = sort;
+  const load = async () => {
+    const list = await api(`/products?q=${encodeURIComponent(q)}&sort=${sort}`);
+    $('#plist').innerHTML = list.length ? `<table><tr><th>Name</th><th>Category</th><th>Type</th><th>Price</th><th>Stock</th><th>Reorder at</th><th></th></tr>
+    ${list.map(p => `<tr><td>${esc(p.name)}</td><td>${esc(p.category)}</td><td>${p.type.toLowerCase()}</td><td>${money(p.price)}</td><td>${p.quantity}</td><td>${p.reorderLevel}</td>
+    <td><button class="btn sm alt" data-in="${p.id}">Add stock</button> <button class="btn sm del" data-del="${p.id}">Delete</button></td></tr>`).join('')}</table>` : '<div class="empty">No products match. Clear the search or add a product below.</div>';
+    document.querySelectorAll('[data-in]').forEach(b => b.onclick = () => {
+      const n = parseInt(prompt('How many units arrived?', '10'));
+      if (n > 0) act(() => api(`/products/${b.dataset.in}/stock`, 'POST', {quantity: n}), 'Stock added');
+    });
+    document.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+      if (confirm('Delete this product and its sales history?')) act(() => api('/products/' + b.dataset.del, 'DELETE'), 'Product deleted');
+    });
+  };
+  $('#q').oninput = e => { q = e.target.value; load(); };
+  $('#sort').onchange = e => { sort = e.target.value; load(); };
+  $('#add').onclick = () => act(() => api('/products', 'POST', {
+    name: $('#n').value, category: $('#c').value, type: $('#t').value,
+    price: parseFloat($('#p').value) || 0, quantity: parseInt($('#qt').value) || 0, reorderLevel: parseInt($('#rl').value) || 0}), 'Product added');
+  load();
+}
+
+function sell() {
+  $('#view').innerHTML = `<h2>Record a sale</h2><div class="panel"><div class="row">
+    <select id="sp">${products.map(p => `<option value="${p.id}">${esc(p.name)} (${p.quantity} in stock)</option>`).join('')}</select>
+    <input id="sq" type="number" min="1" value="1" style="width:90px">
+    <button class="btn" id="go">Record sale</button></div></div>`;
+  $('#go').onclick = () => act(() => api('/sales', 'POST', {productId: +$('#sp').value, quantity: +$('#sq').value}), 'Sale recorded');
+}
+
+async function reorder() {
+  const [sug, reqs] = await Promise.all([api('/suggestions'), api('/requests')]);
+  $('#view').innerHTML = `<h2>Reorder</h2>
+  <p style="color:var(--mute);margin-top:-8px">Suggestions use the last 30 days of sales: average daily sales × (supplier lead time + 7 days), minus current stock.</p>
+  <div class="panel wrap"><table><tr><th>Product</th><th>Status</th><th>In stock</th><th>Avg sold / day</th><th>Days left</th><th>Suggested order</th><th></th></tr>
+  ${sug.map(s => `<tr><td>${esc(s.name)}</td><td><span class="tag ${s.status}">${s.status === 'OUT' ? 'Out of stock' : s.status === 'LOW' ? 'Low' : 'OK'}</span></td>
+  <td>${s.quantity}</td><td>${s.avgDailySales}</td><td>${s.daysLeft >= 999 ? '–' : s.daysLeft}</td><td>${s.suggestedOrder || '–'}</td>
+  <td>${s.suggestedOrder ? `<button class="btn sm" data-rq="${s.productId}" data-n="${s.suggestedOrder}">Queue request</button>` : ''}</td></tr>`).join('')}</table></div>
+  <h3>Pending restock requests (oldest first)</h3>
+  <div class="panel">${reqs.length ? `<table><tr><th>#</th><th>Product</th><th>Quantity</th><th>Requested</th></tr>
+  ${reqs.map(r => `<tr><td>${r.id}</td><td>${esc(r.productName)}</td><td>${r.quantity}</td><td>${r.requestedAt}</td></tr>`).join('')}</table>
+  <div class="row" style="margin:12px 0 0"><button class="btn" id="ful">Mark oldest request as received</button></div>` : '<div class="empty">Nothing pending. Queue a request from the table above.</div>'}</div>`;
+  document.querySelectorAll('[data-rq]').forEach(b => b.onclick = () =>
+    act(() => api('/requests', 'POST', {productId: +b.dataset.rq, quantity: +b.dataset.n}), 'Request queued'));
+  const f = $('#ful'); if (f) f.onclick = () => act(() => api('/requests/fulfil', 'POST'), 'Stock received and added');
+}
+
+async function sales() {
+  const list = await api('/sales');
+  $('#view').innerHTML = `<h2>Sales history</h2><div class="panel wrap">${list.length ? `<table><tr><th>Date</th><th>Product</th><th>Qty</th><th>Total</th></tr>
+  ${list.map(s => `<tr><td>${s.date}</td><td>${esc(s.productName)}</td><td>${s.quantity}</td><td>${money(s.total)}</td></tr>`).join('')}</table>` : '<div class="empty">No sales recorded yet.</div>'}</div>`;
+}
+render();
+</script>
+</body>
+</html>
