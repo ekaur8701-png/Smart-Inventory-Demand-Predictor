@@ -16,6 +16,17 @@ import java.util.*;
 
 /** REST API + static page server using the JDK built-in HttpServer (no framework needed). */
 public class WebServer {
+    private static final Map<String, String> IMAGE_TYPES = Map.of(
+        "/images/pen.jpg", "image/jpeg",
+        "/images/notebook.jpg", "image/jpeg",
+        "/images/books.jpg", "image/jpeg",
+        "/images/mouse.jpg", "image/jpeg",
+        "/images/keyboard.jpg", "image/jpeg",
+        "/images/headphones.jpg", "image/jpeg",
+        "/images/calculator.jpg", "image/jpeg",
+        "/images/cable.png", "image/png"
+    );
+
     record ProductReq(String name, String category, String type, double price, int quantity, int reorderLevel) {}
     record QtyReq(int productId, int quantity) {}
 
@@ -31,9 +42,27 @@ public class WebServer {
     }
 
     private void page(HttpExchange ex) throws IOException {
-        try (InputStream in = getClass().getResourceAsStream("/static/index.html")) {
+        String path = ex.getRequestURI().getPath();
+        String resource = "/static/index.html";
+        String contentType = "text/html; charset=utf-8";
+        if (!path.equals("/")) {
+            contentType = IMAGE_TYPES.get(path);
+            if (contentType == null) {
+                ex.sendResponseHeaders(404, -1);
+                ex.close();
+                return;
+            }
+            resource = "/static" + path;
+            ex.getResponseHeaders().set("Cache-Control", "public, max-age=86400");
+        }
+        try (InputStream in = getClass().getResourceAsStream(resource)) {
+            if (in == null) {
+                ex.sendResponseHeaders(404, -1);
+                ex.close();
+                return;
+            }
             byte[] body = in.readAllBytes();
-            ex.getResponseHeaders().add("Content-Type", "text/html; charset=utf-8");
+            ex.getResponseHeaders().add("Content-Type", contentType);
             ex.sendResponseHeaders(200, body.length);
             ex.getResponseBody().write(body);
         } finally { ex.close(); }

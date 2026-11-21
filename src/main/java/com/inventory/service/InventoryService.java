@@ -71,8 +71,9 @@ public class InventoryService {
     public List<Suggestion> suggestions() {
         LocalDate since = LocalDate.now().minusDays(DemandEstimator.WINDOW_DAYS);
         List<Suggestion> out = new ArrayList<>();
+        Map<Integer, Integer> unitsSold = saleDao.unitsSoldByProductSince(since);
         for (Product p : productDao.findAll()) {
-            out.add(estimator.estimate(p, saleDao.unitsSoldSince(p.getId(), since)));
+            out.add(estimator.estimate(p, unitsSold.getOrDefault(p.getId(), 0)));
         }
         Map<String, Integer> rank = Map.of("OUT", 0, "LOW", 1, "OK", 2);
         out.sort(Comparator.comparing((Suggestion s) -> rank.get(s.status())).thenComparingDouble(Suggestion::daysLeft));

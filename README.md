@@ -7,6 +7,20 @@ Inventory management web app: tracks products, stock levels and sales, and sugge
 - Java 17, JDK built-in `HttpServer` (REST API), JDBC + H2 embedded database, Gson
 - Frontend: single HTML/CSS/JS page served by the app (`src/main/resources/static/index.html`)
 
+## Product photos
+Product thumbnails are stored locally so they do not depend on third-party requests while the app runs. The photos are CC0 from Wikimedia Commons:
+
+| Local image | Source |
+|---|---|
+| `src/main/resources/static/images/pen.jpg` | [A pen writing “Example”](https://commons.wikimedia.org/wiki/File:A_pen_writing_%22Example%22.jpg) |
+| `src/main/resources/static/images/notebook.jpg` | [Camera, keys, notebook and coffee](https://commons.wikimedia.org/wiki/File:Camera_keys_notebook_coffee_(Unsplash).jpg) |
+| `src/main/resources/static/images/books.jpg` | [Books in stack with lamps](https://commons.wikimedia.org/wiki/File:Books_in_stack_with_lamps_(Unsplash).jpg) |
+| `src/main/resources/static/images/mouse.jpg` | [ComputerMouseCloseup3](https://commons.wikimedia.org/wiki/File:ComputerMouseCloseup3.jpg) |
+| `src/main/resources/static/images/keyboard.jpg` | [Keyboard Close Up](https://commons.wikimedia.org/wiki/File:Keyboard_Close_Up.jpg) |
+| `src/main/resources/static/images/headphones.jpg` | [Headphones on white background](https://commons.wikimedia.org/wiki/File:Headphones_on_white_background.jpg) |
+| `src/main/resources/static/images/calculator.jpg` | [Scientific calculator](https://commons.wikimedia.org/wiki/File:Calculator-scientific_(24218253912).jpg) |
+| `src/main/resources/static/images/cable.png` | [USB-C connector and cable](https://commons.wikimedia.org/wiki/File:USB-C-connector-and-cable.png) |
+
 ## Run
 ```
 mvn compile exec:java

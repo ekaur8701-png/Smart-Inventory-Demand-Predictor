@@ -32,12 +32,15 @@ public class SaleDao {
         } catch (SQLException e) { throw new InventoryException("Failed to load sales", e); }
     }
 
-    /** Aggregate SQL: units sold for a product since a given date. */
-    public int unitsSoldSince(int productId, LocalDate since) {
-        String sql = "SELECT COALESCE(SUM(quantity),0) FROM sales WHERE product_id=? AND sale_date>=?";
+    public Map<Integer, Integer> unitsSoldByProductSince(LocalDate since) {
+        String sql = "SELECT product_id, SUM(quantity) FROM sales WHERE sale_date>=? GROUP BY product_id";
+        Map<Integer, Integer> out = new LinkedHashMap<>();
         try (Connection c = Database.get(); PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, productId); ps.setDate(2, Date.valueOf(since));
-            try (ResultSet rs = ps.executeQuery()) { rs.next(); return rs.getInt(1); }
+            ps.setDate(1, Date.valueOf(since));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) out.put(rs.getInt(1), rs.getInt(2));
+            }
+            return out;
         } catch (SQLException e) { throw new InventoryException("Failed to aggregate sales", e); }
     }
 
