@@ -5,8 +5,64 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Smart Inventory</title>
 <style>
-:root{--bg:#eef1f4;--panel:#fff;--ink:#1b2733;--mute:#5d6b78;--line:#d5dce3;--accent:#0f6e6e;--accent-ink:#fff;--ok:#1d7a46;--low:#a86300;--out:#b3261e;--okbg:#e3f3ea;--lowbg:#fdefd5;--outbg:#fbe3e1}
-@media (prefers-color-scheme:dark){:root{--bg:#141a20;--panel:#1c242c;--ink:#e6ecf1;--mute:#97a5b1;--line:#2d3944;--accent:#4fc1b8;--accent-ink:#0b1a19;--ok:#6fd49a;--low:#f0b44c;--out:#ff8a80;--okbg:#17332539;--lowbg:#3a2d12;--outbg:#3d1d1b}}
+:root{--bg:#f4f0ea;--panel:#fffdfa;--ink:#1d1b20;--mute:#756f67;--line:#ddd5cb;--accent:#c98e91;--accent-ink:#fff;--ok:#58705b;--low:#a57a48;--out:#a64f5b;--okbg:#e8eee5;--lowbg:#f3e5d2;--outbg:#f2dcdf}
+body{background:linear-gradient(135deg,#f7f3ee 0%,#efe7df 100%);display:grid;grid-template-rows:auto 1fr auto;min-height:100vh}
+.site-header{position:sticky;top:0;z-index:20;background:rgba(255,253,250,.96);border-bottom:1px solid var(--line);backdrop-filter:blur(12px)}
+.header-inner{width:100%;height:72px;padding:0 clamp(20px,5vw,72px);display:flex;align-items:center;justify-content:space-between;gap:20px}
+.brand{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:800;letter-spacing:-.5px}
+.brand-mark{width:34px;height:34px;border-radius:10px;background:var(--accent);display:grid;place-items:center;color:#fff;font-size:18px}
+nav{width:auto;height:auto;padding:0;border:0;position:static;display:flex;align-items:center;gap:4px}
+nav h1{display:none}
+nav button{width:auto;padding:9px 12px}
+nav button.on{box-shadow:0 5px 16px rgba(169,107,112,.18)}
+.panel,.stat{box-shadow:0 8px 24px rgba(73,61,49,.055)}
+.hero{min-height:360px;display:grid;grid-template-columns:1.1fr .9fr;align-items:center;gap:28px;border:1px solid var(--line);border-radius:16px;padding:38px 42px;margin-bottom:16px;background:var(--panel);box-shadow:0 12px 34px rgba(73,61,49,.08);overflow:hidden}
+.hero-copy h2{font-size:44px;line-height:1.08;letter-spacing:-1.8px;margin:10px 0 16px}
+.hero-copy p{max-width:520px;color:var(--mute);font-size:16px;margin:0 0 22px}
+.eyebrow{display:inline-block;padding:5px 10px;border-radius:99px;background:var(--lowbg);color:var(--low);font-size:12px;font-weight:700}
+.hero-actions{display:flex;gap:10px;flex-wrap:wrap}
+.carousel{position:relative}
+.carousel-slides{position:relative;height:280px}
+.carousel-slide{position:absolute;inset:0;opacity:0;transform:translateX(12px);transition:.35s ease;pointer-events:none}
+.carousel-slide.active{opacity:1;transform:none;pointer-events:auto}
+.slide-card{height:280px;border-radius:14px;padding:28px;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;position:relative}
+.slide-card.one{background:linear-gradient(145deg,#eadbd2,#c98e91)}
+.slide-card.two{background:linear-gradient(145deg,#efe5dc,#b9c2ad)}
+.slide-card.three{background:linear-gradient(145deg,#e8d6d8,#dfb9b9)}
+.slide-card:before{content:"";position:absolute;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.38);right:-70px;top:-90px}
+.slide-card strong{position:relative;font-family:Georgia,serif;font-size:42px;line-height:.95;max-width:250px}
+.carousel-dots{position:absolute;left:16px;bottom:14px;display:flex;gap:6px;z-index:3}
+.carousel-dot{width:7px;height:7px;border:0;border-radius:99px;padding:0;background:rgba(255,255,255,.65)}
+.carousel-dot.active{width:22px;background:#fff}
+.hero-art{height:280px;border-radius:14px;background:linear-gradient(145deg,#eadbd2,#c98e91);display:flex;align-items:center;justify-content:center;position:relative}
+.hero-art .art-card{width:62%;height:72%;border-radius:12px;background:#fffdfa;box-shadow:0 18px 38px rgba(73,61,49,.16);padding:22px;transform:rotate(-4deg)}
+.hero-art .art-line{height:10px;border-radius:8px;background:var(--line);margin:12px 0}
+.hero-art .art-line.accent{width:55%;background:var(--accent)}
+.feature-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.feature{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;box-shadow:0 8px 24px rgba(73,61,49,.055)}
+.feature b{display:block;font-size:18px;margin-bottom:4px}
+.feature span{color:var(--mute)}
+.about-section{display:grid;grid-template-columns:.8fr 1.2fr;gap:32px;align-items:center;padding:32px;margin:26px 0;background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 24px rgba(73,61,49,.055)}
+.about-copy h2{font-size:30px;line-height:1.15;letter-spacing:-.7px;margin:12px 0}
+.about-copy p{color:var(--mute);margin:0}
+.about-points{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.about-point{padding:16px;border-radius:12px;background:var(--bg);border:1px solid var(--line)}
+.about-point b{display:block;margin-bottom:5px}
+.about-point span{color:var(--mute);font-size:14px}
+.site-footer{border-top:1px solid var(--line);background:rgba(255,253,250,.88)}
+.site-footer{background:#25211f;color:#fffaf4;border-top:4px solid #c98e91}
+.footer-inner{width:100%;padding:36px clamp(20px,5vw,72px) 18px}
+.footer-main{display:grid;grid-template-columns:2fr 1fr 1fr;gap:36px;padding-bottom:28px}
+.footer-brand{font-size:21px;font-weight:800;margin-bottom:8px}
+.footer-description{max-width:360px;color:#e3ddd6;margin:0}
+.footer-title{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:#f0b9ad;margin:4px 0 12px}
+.footer-links{display:grid;gap:8px}
+.footer-link{justify-self:start;padding:0;border:0;background:none;color:#f8f3eb;font:inherit;cursor:pointer}
+.footer-link:hover{text-decoration:underline}
+.footer-bottom{border-top:1px solid rgba(255,255,255,.24);padding-top:16px;display:flex;justify-content:space-between;gap:16px;color:#e3ddd6;font-size:13px}
+input,select{border-color:#d8cfc3}
+input:focus-visible,select:focus-visible,button:focus-visible{outline-color:#b8797d}
+button.btn{box-shadow:0 4px 12px rgba(169,107,112,.12)}
 *{box-sizing:border-box}
 body{margin:0;font:15px/1.5 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--ink);display:flex;min-height:100vh}
 nav{width:210px;background:var(--panel);border-right:1px solid var(--line);padding:20px 12px;position:sticky;top:0;height:100vh}
@@ -14,7 +70,7 @@ nav h1{font-size:18px;margin:0 8px 18px}
 nav button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--ink);padding:9px 12px;border-radius:6px;font:inherit;cursor:pointer}
 nav button.on{background:var(--accent);color:var(--accent-ink)}
 nav button:hover:not(.on){background:var(--bg)}
-main{flex:1;padding:24px 28px;max-width:1100px}
+main{flex:1;padding:24px clamp(20px,5vw,72px);max-width:none;width:100%}
 h2{margin:0 0 16px;font-size:22px}
 h3{margin:22px 0 8px;font-size:16px}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:16px}
@@ -38,26 +94,64 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 #toast{position:fixed;bottom:20px;right:20px;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:6px;display:none;max-width:320px}
 #toast.err{background:var(--out);color:#fff}
 .bar{height:8px;background:var(--accent);border-radius:4px}
-@media(max-width:720px){body{flex-direction:column}nav{width:100%;height:auto;position:static;display:flex;flex-wrap:wrap;gap:4px}nav h1{width:100%}nav button{width:auto}main{padding:16px}}
+body{display:grid;grid-template-rows:auto 1fr auto}
+.site-header nav{width:auto;height:auto;padding:0;border:0;position:static;display:flex;align-items:center;gap:4px;background:transparent}
+.site-header nav button{display:block;width:auto;text-align:center;padding:9px 12px}
+@media(max-width:720px){body{grid-template-rows:auto 1fr auto}.header-inner{height:auto;min-height:72px;padding:12px 16px;align-items:flex-start;flex-direction:column}.brand{font-size:18px}nav{width:100%;overflow-x:auto;padding-bottom:2px}nav button{white-space:nowrap}main{padding:16px;width:100%}.hero{grid-template-columns:1fr;padding:28px 22px}.hero-copy h2{font-size:36px}.carousel-slides,.slide-card{height:220px}.feature-grid{grid-template-columns:1fr}.about-section{grid-template-columns:1fr;padding:22px;gap:20px}.about-copy h2{font-size:26px}.about-points{grid-template-columns:1fr}.footer-inner{padding:28px 16px 16px}.footer-main{grid-template-columns:1fr 1fr;gap:24px}.footer-about{grid-column:1/-1}.footer-bottom{flex-direction:column}}
 </style>
 </head>
 <body>
+<header class="site-header">
+  <div class="header-inner">
+  <div class="brand"><span class="brand-mark">SI</span> Smart Inventory</div>
 <nav>
-  <h1>Smart Inventory</h1>
-  <button data-t="overview" class="on">Overview</button>
+  <button data-t="home" class="on">Home</button>
+  <button data-t="about">About</button>
+  <button data-t="overview">Overview</button>
   <button data-t="products">Products</button>
   <button data-t="sell">Record a sale</button>
   <button data-t="reorder">Reorder</button>
   <button data-t="sales">Sales history</button>
 </nav>
+</div>
+</header>
 <main id="view"></main>
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-main">
+      <div class="footer-about">
+        <div class="footer-brand">Smart Inventory</div>
+        <p class="footer-description">A simpler way to track products, record sales and keep your stock ready for what comes next.</p>
+      </div>
+      <div>
+        <h2 class="footer-title">Explore</h2>
+        <div class="footer-links">
+          <button class="footer-link" data-go="home">Home</button>
+          <button class="footer-link" data-go="about">About</button>
+          <button class="footer-link" data-go="overview">Overview</button>
+          <button class="footer-link" data-go="products">Products</button>
+        </div>
+      </div>
+      <div>
+        <h2 class="footer-title">Inventory</h2>
+        <div class="footer-links">
+          <button class="footer-link" data-go="sell">Record a sale</button>
+          <button class="footer-link" data-go="reorder">Reorder suggestions</button>
+          <button class="footer-link" data-go="sales">Sales history</button>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom"><span>© 2026 Smart Inventory</span><span>Stock clarity for every day</span></div>
+  </div>
+</footer>
 <div id="toast" role="status"></div>
 
 <script>
 const $ = s => document.querySelector(s);
 const money = n => '₹' + Number(n).toLocaleString('en-IN', {maximumFractionDigits: 2});
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let tab = 'overview', products = [];
+let tab = 'home', products = [];
+let carouselTimer;
 
 async function api(path, method = 'GET', body) {
   const res = await fetch('/api' + path, {method, headers: {'Content-Type': 'application/json'}, body: body ? JSON.stringify(body) : undefined});
@@ -75,10 +169,82 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   document.querySelectorAll('nav button').forEach(x => x.classList.remove('on'));
   b.classList.add('on'); tab = b.dataset.t; render();
 });
+document.querySelectorAll('.footer-link').forEach(b => b.onclick = () => goTab(b.dataset.go));
 
 async function render() {
+  clearInterval(carouselTimer);
   products = await api('/products');
-  ({overview, products: viewProducts, sell, reorder, sales}[tab] || overview)();
+  ({home, about, overview, products: viewProducts, sell, reorder, sales}[tab] || home)();
+}
+
+function home() {
+  const lowCount = products.filter(p => p.quantity <= p.reorderLevel).length;
+  const totalStock = products.reduce((sum, p) => sum + p.quantity, 0);
+  $('#view').innerHTML = `<section class="hero">
+    <div class="hero-copy">
+      <span class="eyebrow">Smart Inventory</span>
+      <h2>Stock clarity,<br>every day.</h2>
+      <p>Manage products, record sales and stay ahead of restocking with clear, simple inventory insights.</p>
+      <div class="hero-actions">
+        <button class="btn" id="homeProducts">View products</button>
+        <button class="btn alt" id="homeOverview">Open overview</button>
+      </div>
+    </div>
+    <div class="carousel" aria-label="Inventory highlights">
+      <div class="carousel-slides">
+        <div class="carousel-slide active"><div class="slide-card one"><span class="eyebrow">Today's stock</span><strong>Know what is in</strong></div></div>
+        <div class="carousel-slide"><div class="slide-card two"><span class="eyebrow">Sales</span><strong>Turn activity into insight</strong></div></div>
+        <div class="carousel-slide"><div class="slide-card three"><span class="eyebrow">Restock</span><strong>Stay ahead of demand</strong></div></div>
+      </div>
+      <div class="carousel-dots">
+        <button class="carousel-dot active" aria-label="Slide 1"></button>
+        <button class="carousel-dot" aria-label="Slide 2"></button>
+        <button class="carousel-dot" aria-label="Slide 3"></button>
+      </div>
+    </div>
+  </section>
+  <div class="feature-grid">
+    <div class="feature"><b>${products.length} products</b><span>Currently tracked in inventory</span></div>
+    <div class="feature"><b>${totalStock} units</b><span>Total stock available now</span></div>
+    <div class="feature"><b>${lowCount} alerts</b><span>Low or out-of-stock items</span></div>
+  </div>`;
+  $('#view').insertAdjacentHTML('beforeend', `<section class="about-section" id="about">
+    <div class="about-copy">
+      <span class="eyebrow">About the project</span>
+      <h2>Inventory management, made clearer.</h2>
+      <p>Smart Inventory helps keep everyday stock organized in one place. Check what is available, record sales, and use stock suggestions to plan what to replenish.</p>
+    </div>
+    <div class="about-points">
+      <div class="about-point"><b>Organized catalog</b><span>Browse products by name, category, price, and quantity.</span></div>
+      <div class="about-point"><b>Sales tracking</b><span>Record transactions and review recent sales.</span></div>
+      <div class="about-point"><b>Stock awareness</b><span>See low-stock items before they become a surprise.</span></div>
+      <div class="about-point"><b>Restock planning</b><span>Review demand-based suggestions and queue requests.</span></div>
+    </div>
+  </section>`);
+  $('#homeProducts').onclick = () => goTab('products');
+  $('#homeOverview').onclick = () => goTab('overview');
+  const slides = [...document.querySelectorAll('.carousel-slide')];
+  const dots = [...document.querySelectorAll('.carousel-dot')];
+  let current = 0;
+  clearInterval(carouselTimer);
+  const showSlide = index => {
+    current = (index + slides.length) % slides.length;
+    slides.forEach((slide, i) => slide.classList.toggle('active', i === current));
+    dots.forEach((dot, i) => dot.classList.toggle('active', i === current));
+  };
+  dots.forEach((dot, i) => dot.onclick = () => showSlide(i));
+  carouselTimer = setInterval(() => showSlide(current + 1), 4000);
+}
+
+function about() {
+  home();
+  requestAnimationFrame(() => $('#about').scrollIntoView({behavior: 'smooth'}));
+}
+
+function goTab(name) {
+  tab = name;
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.t === name));
+  render();
 }
 
 async function overview() {
