@@ -1,23 +1,23 @@
 package com.inventory.service;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
 
 import com.inventory.db.Database;
-import com.inventory.db.ProductDao;
-import com.inventory.model.Product;
-import com.inventory.model.ProductFactory;
 
 /** Replaces the demo catalog once with the curated student-supply inventory. */
 public final class SeedData {
     private SeedData() {}
 
     public static void loadIfEmpty() {
-        ProductDao pd = new ProductDao();
         if (catalogMigrationApplied()) return;
-        replaceCatalog(pd);
+        replaceCatalog();
         markCatalogMigration();
     }
 
@@ -34,7 +34,7 @@ public final class SeedData {
         }
     }
 
-    private static void replaceCatalog(ProductDao pd) {
+    private static void replaceCatalog() {
         Object[][] rows = {
             {"GENERAL", "Notebook", "Stationery", 60.0, 50, 10},
             {"GENERAL", "Blue Pen", "Stationery", 10.0, 100, 20},
@@ -65,13 +65,57 @@ public final class SeedData {
         try (Connection c = Database.get(); Statement s = c.createStatement()) {
             s.execute("DELETE FROM sales");
             s.execute("DELETE FROM products");
+            insertProducts(c, rows);
         } catch (Exception e) {
-            throw new RuntimeException("Could not clear the previous product catalog", e);
+            throw new RuntimeException("Could not replace the previous product catalog", e);
         }
-        for (Object[] r : rows) {
-            Product p = ProductFactory.create(0, (String) r[0], (String) r[1], (String) r[2],
-                (double) r[3], (int) r[4], (int) r[5]);
-            pd.insert(p);
+    }
+
+    private static void insertProducts(Connection c, Object[][] rows) throws Exception {
+        List<String> columns = new ArrayList<>();
+        List<Integer> fields = new ArrayList<>();
+        try (ResultSet rs = c.createStatement().executeQuery("SELECT * FROM products WHERE 1=0")) {
+            ResultSetMetaData md = rs.getMetaData();
+            for (int i = 1; i <= md.getColumnCount(); i++) {
+                int field = productField(md.getColumnLabel(i));
+                if (field >= 0) {
+                    columns.add(md.getColumnLabel(i));
+                    fields.add(field);
+                }
+            }
+        }
+        if (columns.isEmpty()) throw new IllegalStateException("No recognized product columns found");
+
+        StringBuilder sql = new StringBuilder("INSERT INTO products (");
+        for (int i = 0; i < columns.size(); i++) {
+            if (i > 0) sql.append(',');
+            sql.append(columns.get(i));
+        }
+        sql.append(") VALUES (");
+        for (int i = 0; i < columns.size(); i++) {
+            if (i > 0) sql.append(',');
+            sql.append('?');
+        }
+        sql.append(')');
+
+        try (PreparedStatement ps = c.prepareStatement(sql.toString())) {
+            for (Object[] row : rows) {
+                for (int i = 0; i < fields.size(); i++) ps.setObject(i + 1, row[fields.get(i)]);
+                ps.executeUpdate();
+            }
+        }
+    }
+
+    private static int productField(String column) {
+        String name = column.toLowerCase().replaceAll("[^a-z0-9]", "");
+        switch (name) {
+            case "type": case "producttype": return 0;
+            case "name": case "productname": return 1;
+            case "category": case "productcategory": return 2;
+            case "price": case "unitprice": return 3;
+            case "stock": case "quantity": case "stockquantity": return 4;
+            case "threshold": case "reorderlevel": case "lowstockthreshold": return 5;
+            default: return -1;
         }
     }
 

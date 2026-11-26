@@ -1,8 +1,10 @@
 package com.inventory.web;
 
 import com.google.gson.Gson;
+import com.inventory.exception.AuthenticationException;
 import com.inventory.exception.InventoryException;
 import com.inventory.exception.ProductNotFoundException;
+import com.inventory.service.AuthService;
 import com.inventory.service.InventoryService;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -29,8 +31,10 @@ public class WebServer {
 
     record ProductReq(String name, String category, String type, double price, int quantity, int reorderLevel) {}
     record QtyReq(int productId, int quantity) {}
+    record AuthReq(String email, String password) {}
 
     private final InventoryService svc = new InventoryService();
+    private final AuthService auth = new AuthService();
     private final Gson gson = new Gson();
 
     public void start(int port) throws IOException {
@@ -71,7 +75,11 @@ public class WebServer {
     private void api(HttpExchange ex) throws IOException {
         int status = 200; Object result;
         try {
+            if (!ex.getRequestURI().getPath().startsWith("/api/auth/")) {
+                auth.authenticate(sessionToken(ex));
+            }
             result = route(ex);
+        } catch (AuthenticationException e) { status = e.getStatus(); result = Map.of("error", e.getMessage());
         } catch (ProductNotFoundException e) { status = 404; result = Map.of("error", e.getMessage());
         } catch (InventoryException e) { status = 400; result = Map.of("error", e.getMessage());
         } catch (Exception e) { e.printStackTrace(); status = 500; result = Map.of("error", "Server error: " + e.getMessage()); }
@@ -90,6 +98,24 @@ public class WebServer {
         String res = seg.length > 1 ? seg[1] : "";
 
         switch (res) {
+            case "auth":
+                if (seg.length == 3 && seg[2].equals("signup") && method.equals("POST")) {
+                    AuthReq request = gson.fromJson(body, AuthReq.class);
+                    return startSession(ex, auth.createAccount(request.email(), request.password()));
+                }
+                if (seg.length == 3 && seg[2].equals("login") && method.equals("POST")) {
+                    AuthReq request = gson.fromJson(body, AuthReq.class);
+                    return startSession(ex, auth.login(request.email(), request.password()));
+                }
+                if (seg.length == 3 && seg[2].equals("me") && method.equals("GET")) {
+                    return auth.authenticate(sessionToken(ex));
+                }
+                if (seg.length == 3 && seg[2].equals("logout") && method.equals("POST")) {
+                    auth.logout(sessionToken(ex));
+                    ex.getResponseHeaders().add("Set-Cookie", "SI_SESSION=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax");
+                    return Map.of("ok", true);
+                }
+                break;
             case "products":
                 if (seg.length == 2 && method.equals("GET")) return svc.listProducts(q.get("q"), q.get("sort"));
                 if (seg.length == 2 && method.equals("POST")) {
@@ -117,6 +143,22 @@ public class WebServer {
                 break;
         }
         throw new InventoryException("Unknown endpoint: " + method + " " + ex.getRequestURI().getPath());
+    }
+
+    private Object startSession(HttpExchange ex, AuthService.Session session) {
+        ex.getResponseHeaders().add("Set-Cookie", "SI_SESSION=" + session.token() +
+            "; Path=/; Max-Age=604800; HttpOnly; SameSite=Lax");
+        return session.user();
+    }
+
+    private String sessionToken(HttpExchange ex) {
+        String cookieHeader = ex.getRequestHeaders().getFirst("Cookie");
+        if (cookieHeader == null) return null;
+        for (String cookie : cookieHeader.split(";")) {
+            String[] parts = cookie.trim().split("=", 2);
+            if (parts.length == 2 && parts[0].equals("SI_SESSION")) return parts[1];
+        }
+        return null;
     }
 
     private Map<String, String> query(String raw) {

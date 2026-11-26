@@ -4,7 +4,7 @@ Inventory management web app: tracks products, stock levels and sales, and sugge
 **simple rules** (30-day average sales + supplier lead time). No machine learning.
 
 ## Tech
-- Java 17, JDK built-in `HttpServer` (REST API), JDBC + H2 embedded database, Gson
+- Java 25 LTS, JDK built-in `HttpServer` (REST API), JDBC + H2 embedded database, Gson
 - Frontend: single HTML/CSS/JS page served by the app (`src/main/resources/static/index.html`)
 
 ## Product photos
@@ -31,12 +31,17 @@ Open http://localhost:8080. Demo data is created on first run (stored in `./data
 | Package | Purpose |
 |---|---|
 | `model` | `Product` + `PerishableProduct` / `ElectronicProduct` (inheritance), `Sale`, `StockRequest`, `Suggestion` |
-| `db` | JDBC: `Database`, `ProductDao`, `SaleDao` (aggregate SQL: SUM, GROUP BY) |
-| `service` | `InventoryService` (List/Map/Queue/Comparator), `DemandEstimator` (rules), `SeedData` |
-| `exception` | `InventoryException`, `ProductNotFoundException`, `OutOfStockException` |
+| `db` | JDBC: `Database`, `AuthDao`, `ProductDao`, `SaleDao` (aggregate SQL: SUM, GROUP BY) |
+| `service` | `AuthService`, `InventoryService` (List/Map/Queue/Comparator), `DemandEstimator` (rules), `SeedData` |
+| `exception` | `AuthenticationException`, `InventoryException`, `ProductNotFoundException`, `OutOfStockException` |
 | `web` | `WebServer` REST endpoints |
 
 ## REST API
+`POST /api/auth/signup`, `POST /api/auth/login`, `GET /api/auth/me`, and `POST /api/auth/logout` provide account access.
+Passwords are stored as salted PBKDF2 hashes; successful signup and login set an HttpOnly, SameSite=Lax session cookie
+that expires after seven days. All inventory endpoints require a signed-in session. Accounts currently share the same
+inventory and sales data. Use HTTPS when exposing the app outside a trusted local network.
+
 `GET/POST /api/products`, `DELETE /api/products/{id}`, `POST /api/products/{id}/stock`,
 `GET/POST /api/sales`, `GET /api/suggestions`, `GET/POST /api/requests`, `POST /api/requests/fulfil`, `GET /api/report`
 
@@ -49,7 +54,7 @@ Open http://localhost:8080. Demo data is created on first run (stored in `./data
 - [x] Rule-based reorder suggestions, FIFO pending request queue
 - [x] JDBC persistence, custom exceptions, web UI
 - [ ] Persist the pending-request queue in the database
-- [ ] Edit product, CSV export, login
+- [ ] Edit product, CSV export
 
 ## Team
 (Add names + roll numbers here)

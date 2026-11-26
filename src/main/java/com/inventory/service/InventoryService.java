@@ -30,9 +30,10 @@ public class InventoryService {
     public List<Product> listProducts(String query, String sort) {
         List<Product> list = productDao.findAll();
         if (query != null && !query.isBlank()) {
-            String q = query.toLowerCase();
-            list = list.stream().filter(p -> p.getName().toLowerCase().contains(q)
-                    || p.getCategory().toLowerCase().contains(q)).collect(Collectors.toList());
+            String q = query.toLowerCase(Locale.ROOT);
+            list = list.stream().filter(p -> p.getName().toLowerCase(Locale.ROOT).contains(q)
+                    || (p.getCategory() != null && p.getCategory().toLowerCase(Locale.ROOT).contains(q)))
+                    .collect(Collectors.toList());
         }
         Comparator<Product> cmp = SORTS.get(sort == null ? "" : sort);
         if (cmp != null) list.sort(cmp);
@@ -41,7 +42,9 @@ public class InventoryService {
 
     public Product addProduct(String type, String name, String category, double price, int qty, int reorder) {
         if (name == null || name.isBlank()) throw new InventoryException("Product name is required");
-        if (price < 0 || qty < 0 || reorder < 0) throw new InventoryException("Price, quantity and reorder level cannot be negative");
+        if (!Double.isFinite(price) || price < 0 || qty < 0 || reorder < 0) {
+            throw new InventoryException("Price must be finite and non-negative; quantity and reorder level cannot be negative");
+        }
         Product p = ProductFactory.create(0, type, name.trim(), category == null ? "" : category.trim(), price, qty, reorder);
         int id = productDao.insert(p);
         return productDao.findById(id);
@@ -49,9 +52,12 @@ public class InventoryService {
 
     public void deleteProduct(int id) { productDao.delete(id); }
 
-    public Product stockIn(int id, int qty) {
+    public synchronized Product stockIn(int id, int qty) {
         if (qty <= 0) throw new InventoryException("Quantity must be positive");
         Product p = productDao.findById(id);
+        if (qty > Integer.MAX_VALUE - p.getQuantity()) {
+            throw new InventoryException("Stock quantity exceeds the maximum supported value");
+        }
         productDao.updateQuantity(id, p.getQuantity() + qty);
         return productDao.findById(id);
     }
@@ -93,9 +99,10 @@ public class InventoryService {
 
     /** Receives the oldest request (FIFO) and adds the stock. */
     public synchronized StockRequest fulfilNext() {
-        StockRequest r = pending.poll();
+        StockRequest r = pending.peek();
         if (r == null) throw new InventoryException("No pending requests");
         stockIn(r.getProductId(), r.getQuantity());
+        pending.remove();
         return r;
     }
 

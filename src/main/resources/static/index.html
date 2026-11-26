@@ -179,13 +179,25 @@ button.btn:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(169,107,1
 @media(max-width:950px){.header-inner{padding:0 22px}.dashboard-columns{grid-template-columns:1fr}.header-inner{gap:12px}.site-header nav{max-width:70vw;overflow-x:auto}}
 @media(max-width:720px){.header-inner{padding:12px 16px}.site-header nav{max-width:100%;width:100%;padding-bottom:2px}.page-heading,.dashboard-hero{align-items:flex-start;flex-direction:column}.page-heading{margin-top:4px}.launch-grid{grid-template-columns:1fr}.launch-card{min-height:145px}.health-grid{grid-template-columns:1fr}.dashboard-hero{padding:24px}.sale-preview{align-items:flex-start;flex-direction:column}.table-panel{padding:6px 10px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+[hidden]{display:none!important}
+.auth-actions{display:flex;align-items:center;gap:12px;color:var(--mute);font-size:14px}
+.auth-page{min-height:55vh;display:grid;place-items:center}
+.auth-card{width:min(100%,440px);padding:30px;background:var(--panel);border:1px solid var(--line);border-radius:20px;box-shadow:0 18px 44px rgba(73,61,49,.1)}
+.auth-card h1{font-size:30px;letter-spacing:-1px;margin:12px 0 5px}
+.auth-card>p{color:var(--mute);margin:0 0 22px}
+.auth-field{display:grid;gap:6px;margin:14px 0}
+.auth-field label{font-size:14px;font-weight:650}
+.auth-field input{width:100%;padding:11px 12px}
+.auth-submit{width:100%;margin-top:8px}
+.auth-switch{display:flex;justify-content:center;align-items:center;gap:5px;margin:18px 0 0;color:var(--mute);font-size:14px}
 </style>
 </head>
 <body>
 <header class="site-header">
   <div class="header-inner">
   <div class="brand"><span class="brand-mark">SI</span> Smart Inventory</div>
-  <nav aria-label="Main navigation">
+  <div id="authActions" class="auth-actions" hidden><span id="accountEmail"></span><button class="btn alt sm" id="logout">Log out</button></div>
+  <nav id="mainNav" aria-label="Main navigation" hidden>
   <button data-t="home" class="on">Home</button>
     <button data-t="overview" class="dashboard-nav">Dashboard</button>
     <button data-t="products">Inventory</button>
@@ -197,7 +209,7 @@ button.btn:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(169,107,1
 </div>
 </header>
 <main id="view"></main>
-<footer class="site-footer">
+<footer id="siteFooter" class="site-footer" hidden>
   <div class="footer-inner">
     <div class="footer-main">
       <div class="footer-about">
@@ -247,7 +259,7 @@ function productImage(product) {
 function productIdentity(product) {
   return `<span class="product-name">${productImage(product)}<span>${esc(product.name)}</span></span>`;
 }
-let tab = 'home', products = [], productsLoaded = false;
+let tab = 'home', products = [], productsLoaded = false, authenticated = false, authMode = 'login';
 let carouselTimer, renderVersion = 0, cacheVersion = 0;
 const apiCache = new Map(), pendingApi = new Map();
 
@@ -274,8 +286,24 @@ function invalidateApiCache() {
 async function api(path, method = 'GET', body) {
   const res = await fetch('/api' + path, {method, headers: {'Content-Type': 'application/json'}, body: body ? JSON.stringify(body) : undefined});
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Request failed');
+  if (!res.ok) {
+    const error = new Error(data.error || 'Request failed');
+    error.status = res.status;
+    if (res.status === 401 && authenticated && !path.startsWith('/auth/')) {
+      setAuthenticated(null);
+      invalidateApiCache();
+      render();
+    }
+    throw error;
+  }
   return data;
+}
+function setAuthenticated(email) {
+  authenticated = Boolean(email);
+  $('#mainNav').hidden = !authenticated;
+  $('#siteFooter').hidden = !authenticated;
+  $('#authActions').hidden = !authenticated;
+  $('#accountEmail').textContent = email || '';
 }
 function toast(msg, err) {
   const t = $('#toast'); t.textContent = msg; t.className = err ? 'err' : ''; t.style.display = 'block';
@@ -309,6 +337,10 @@ function render() {
   view.classList.remove('page-enter');
   void view.offsetWidth;
   view.classList.add('page-enter');
+  if (!authenticated) {
+    authScreen();
+    return;
+  }
   if (!productsLoaded) {
     view.innerHTML = '<div class="empty-state">Loading your inventory…</div>';
     return;
@@ -321,6 +353,45 @@ function render() {
   } catch (e) { toast(e.message, true); }
 }
 
+function authScreen() {
+  const signup = authMode === 'signup';
+  $('#view').innerHTML = `<section class="auth-page"><div class="auth-card">
+    <span class="eyebrow">Smart Inventory</span>
+    <h1>${signup ? 'Create your account' : 'Welcome back'}</h1>
+    <p>${signup ? 'Sign up to access the inventory workspace.' : 'Log in to continue to your inventory workspace.'}</p>
+    <form id="authForm">
+      <div class="auth-field"><label for="authEmail">Email address</label><input id="authEmail" type="email" autocomplete="email" maxlength="254" required></div>
+      <div class="auth-field"><label for="authPassword">Password</label><input id="authPassword" type="password" autocomplete="${signup ? 'new-password' : 'current-password'}" minlength="${signup ? 8 : 1}" maxlength="128" required></div>
+      ${signup ? '<div class="empty">Use at least 8 characters for your password.</div>' : ''}
+      <button class="btn auth-submit" type="submit">${signup ? 'Create account' : 'Log in'}</button>
+    </form>
+    <div class="auth-switch"><span>${signup ? 'Already have an account?' : 'New to Smart Inventory?'}</span>
+      <button class="btn alt sm" id="authToggle" type="button">${signup ? 'Log in' : 'Sign up'}</button>
+    </div>
+  </div></section>`;
+  $('#authToggle').onclick = () => { authMode = signup ? 'login' : 'signup'; authScreen(); };
+  $('#authForm').onsubmit = async event => {
+    event.preventDefault();
+    const email = $('#authEmail').value;
+    const password = $('#authPassword').value;
+    try {
+      const user = await api(signup ? '/auth/signup' : '/auth/login', 'POST', {email, password});
+      setAuthenticated(user.email);
+      invalidateApiCache();
+      await loadInventory();
+    } catch (e) { toast(e.message, true); }
+  };
+}
+
+async function loadInventory() {
+  productsLoaded = false;
+  render();
+  products = await cachedApi('/products');
+  productsLoaded = true;
+  render();
+  preloadNavigationData();
+}
+
 function preloadNavigationData() {
   const paths = ['/report', '/suggestions', '/requests', '/sales'];
   void Promise.allSettled(paths.map(path => cachedApi(path))).then(results => {
@@ -331,11 +402,14 @@ function preloadNavigationData() {
 }
 async function initialize() {
   try {
-    products = await cachedApi('/products');
-    productsLoaded = true;
+    const user = await api('/auth/me');
+    setAuthenticated(user.email);
+    await loadInventory();
+  } catch (e) {
+    if (e.status !== 401) toast(e.message, true);
+    setAuthenticated(null);
     render();
-    preloadNavigationData();
-  } catch (e) { toast(e.message, true); }
+  }
 }
 
 function home() {
@@ -423,6 +497,18 @@ function goTab(name) {
   render();
   window.scrollTo({top: 0, behavior: 'smooth'});
 }
+
+$('#logout').onclick = async () => {
+  try {
+    await api('/auth/logout', 'POST');
+    setAuthenticated(null);
+    products = [];
+    productsLoaded = false;
+    invalidateApiCache();
+    authMode = 'login';
+    render();
+  } catch (e) { toast(e.message, true); }
+};
 
 async function overview() {
   const version = renderVersion;
